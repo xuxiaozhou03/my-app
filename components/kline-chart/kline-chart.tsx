@@ -3,6 +3,7 @@ import { KLineChartPro } from "@klinecharts/pro";
 import "@klinecharts/pro/dist/klinecharts-pro.css";
 import React from "react";
 import CustomDatafeed from "./datafeed";
+import "./index.css";
 
 const Klinecharts = () => {
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -28,10 +29,15 @@ const Klinecharts = () => {
         type: "ADRC",
       },
       // 初始化周期
-      period: { multiplier: 1, timespan: "day", text: "D" },
+      period: { multiplier: 1, timespan: "day", text: "日K" },
       datafeed: new CustomDatafeed(),
       drawingBarVisible: false,
       mainIndicators: ["BOLL"],
+      periods: [
+        { multiplier: 1, timespan: "day", text: "日K" },
+        { multiplier: 1, timespan: "week", text: "周K" },
+        { multiplier: 1, timespan: "month", text: "月K" },
+      ],
     });
   }, []);
 
@@ -52,7 +58,7 @@ const Klinecharts = () => {
   //   }
   // });
 
-  return <div ref={containerRef} className="w-full h-full"></div>;
+  return <div ref={containerRef} className="w-full h-full chart"></div>;
 };
 
 export default Klinecharts;

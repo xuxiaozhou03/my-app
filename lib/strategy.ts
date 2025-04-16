@@ -95,7 +95,11 @@ function calculateTradingCosts(price, shares, isBuy = true) {
 }
 
 // 回测策略（包含交易成本）
-export function backtest(klineData, signals, initialCapital = 100000) {
+export function backtest(
+  klineData: KLineData[],
+  signals,
+  initialCapital = 100000
+) {
   let capital = initialCapital;
   let shares = 0;
   const trades = [];

@@ -1,0 +1,10 @@
+.chart .klinecharts-pro-period-bar .menu-container,
+.chart .klinecharts-pro-period-bar .symbol,
+.chart .klinecharts-pro-price-unit,
+.chart .klinecharts-pro-period-bar .tools {
+  display: none !important;
+}
+
+.chart .symbol + .period {
+  margin-left: 0;
+}

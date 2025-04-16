@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -18,104 +18,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { EtfList, fetchETFList } from "@/lib/service/etfList";
-import { calculateBOLL, runBollStrategy, backtest } from "@/lib/strategy";
 import SignalLegend from "@/components/signal-legend";
 import PerformanceMetrics from "@/components/performance-metrics";
 import EquityCurveChart from "@/components/equity-curve-chart";
 import TradeList from "@/components/trade-list";
 import { Loader2 } from "lucide-react";
-import { KLineData } from "@/type";
-import { fetchKLineData } from "@/lib/service/klineData";
 import KLineChart from "@/components/kline-chart";
+import useEtfList from "@/hooks/use-etf-list";
+import useBacktest from "@/hooks/use-backtest";
 
 export default function Dashboard() {
-  const [loading, setLoading] = useState(false);
-  const [etfList, setEtfList] = useState<EtfList>([]);
-  const [selectedETF, setSelectedETF] = useState<EtfList[0] | null>(null);
-  const [klineData, setKlineData] = useState<KLineData[]>([]);
-  const [bollData, setBollData] = useState([]);
-  const [signals, setSignals] = useState([]);
-  const [backtestResult, setBacktestResult] = useState(null);
-  const [initialCapital, setInitialCapital] = useState(100000);
+  const { selectedETF, loading, etfList, handleETFChange } = useEtfList();
+
   const [activeTab, setActiveTab] = useState("chart");
-  const [chartKey, setChartKey] = useState(0); // Add a key to force re-render
 
-  // Load ETF list on component mount
-  useEffect(() => {
-    const loadETFList = async () => {
-      try {
-        setLoading(true);
-        const list = await fetchETFList();
-        setEtfList(list.slice(0, 10));
-        if (list.length > 0) {
-          setSelectedETF(list[0]);
-        }
-      } catch (error) {
-        console.error("Failed to load ETF list:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { initialCapital, signals, backtestResult, total } = useBacktest(
+    selectedETF?.symbol
+  );
 
-    loadETFList();
-  }, []);
+  // const handleRunBacktest = () => {
+  //   // Recalculate BOLL indicator with current parameters
+  //   const boll = calculateBOLL(klineData);
 
-  // Load K-line data when ETF is selected
-  useEffect(() => {
-    const loadKLineData = async () => {
-      if (!selectedETF) return;
+  //   // Run BOLL strategy
+  //   const strategySignals = runBollStrategy(boll);
+  //   setSignals(strategySignals);
 
-      try {
-        setLoading(true);
-        const data = await fetchKLineData(selectedETF.symbol);
-        setKlineData(data);
-
-        // Calculate BOLL indicator
-        const boll = calculateBOLL(data);
-        setBollData(boll);
-
-        // Run BOLL strategy
-        const strategySignals = runBollStrategy(boll);
-        setSignals(strategySignals);
-
-        // Run backtest
-        const result = backtest(data, strategySignals, initialCapital);
-        setBacktestResult(result);
-
-        // Force chart re-render
-        setChartKey((prev) => prev + 1);
-      } catch (error) {
-        console.error("Failed to load K-line data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadKLineData();
-  }, [selectedETF, initialCapital]);
-
-  const handleETFChange = (code) => {
-    const etf = etfList.find((e) => e.symbol === code);
-    setSelectedETF(etf);
-  };
-
-  const handleRunBacktest = () => {
-    // Recalculate BOLL indicator with current parameters
-    const boll = calculateBOLL(klineData);
-    setBollData(boll);
-
-    // Run BOLL strategy
-    const strategySignals = runBollStrategy(boll);
-    setSignals(strategySignals);
-
-    // Run backtest
-    const result = backtest(klineData, strategySignals, initialCapital);
-    setBacktestResult(result);
-
-    // Force chart re-render
-    setChartKey((prev) => prev + 1);
-  };
+  //   // Run backtest
+  //   const result = backtest(klineData, strategySignals, initialCapital);
+  //   setBacktestResult(result);
+  // };
 
   return (
     <div className="container mx-auto p-4">
@@ -202,8 +134,8 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <Button
-              onClick={handleRunBacktest}
-              disabled={loading || klineData.length === 0}
+              // onClick={handleRunBacktest}
+              disabled={loading}
               className="w-full"
             >
               {loading ? (
@@ -248,25 +180,18 @@ export default function Dashboard() {
                   显示K线、布林带上中下轨以及买卖信号
                 </CardDescription>
               </CardHeader>
-              <CardContent className="h-[500px]">
+              <CardContent className="box-border">
                 {loading ? (
                   <div className="flex items-center justify-center h-full">
                     <Loader2 className="h-8 w-8 animate-spin" />
                   </div>
-                ) : klineData.length > 0 ? (
-                  <KLineChart
-                    key={chartKey}
-                    klineData={klineData}
-                    bollData={bollData}
-                    signals={signals}
-                  />
                 ) : (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    暂无数据
-                  </div>
+                  <KLineChart signals={signals} />
                 )}
               </CardContent>
-              {signals.length > 0 && <SignalLegend signals={signals} />}
+              {signals && signals.length > 0 && (
+                <SignalLegend signals={signals} />
+              )}
             </Card>
           </div>
         </TabsContent>
@@ -279,10 +204,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 {backtestResult ? (
-                  <PerformanceMetrics
-                    result={backtestResult}
-                    klineData={klineData}
-                  />
+                  <PerformanceMetrics result={backtestResult} total={total} />
                 ) : (
                   <div className="flex items-center justify-center h-[300px] text-muted-foreground">
                     暂无回测数据
