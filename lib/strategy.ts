@@ -1,3 +1,4 @@
+// 计算布林带指标
 export function calculateBOLL(klineData, period = 20, multiplier = 2) {
   const result = []
 

@@ -1,3 +1,4 @@
+// 获取A股ETF列表
 export async function fetchETFList() {
   try {
     // 在实际应用中，这里应该调用真实的API

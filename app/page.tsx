@@ -1,101 +1,344 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { fetchETFList, fetchKLineData } from "@/lib/data-service";
+import { calculateBOLL, runBollStrategy, backtest } from "@/lib/strategy";
+import dynamic from "next/dynamic";
+import SignalLegend from "@/components/signal-legend";
+import PerformanceMetrics from "@/components/performance-metrics";
+import EquityCurveChart from "@/components/equity-curve-chart";
+import TradeList from "@/components/trade-list";
+import { Loader2 } from "lucide-react";
+
+// Import KLineChart component dynamically to avoid SSR issues
+const KLineChart = dynamic(() => import("@/components/kline-chart"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-[500px]">
+      <Loader2 className="h-8 w-8 animate-spin" />
+    </div>
+  ),
+});
+
+export default function Dashboard() {
+  const [loading, setLoading] = useState(false);
+  const [etfList, setEtfList] = useState([]);
+  const [selectedETF, setSelectedETF] = useState(null);
+  const [klineData, setKlineData] = useState([]);
+  const [bollData, setBollData] = useState([]);
+  const [signals, setSignals] = useState([]);
+  const [backtestResult, setBacktestResult] = useState(null);
+  const [initialCapital, setInitialCapital] = useState(100000);
+  const [bollPeriod, setBollPeriod] = useState(20);
+  const [bollMultiplier, setBollMultiplier] = useState(2);
+  const [activeTab, setActiveTab] = useState("chart");
+  const [chartKey, setChartKey] = useState(0); // Add a key to force re-render
+
+  // Load ETF list on component mount
+  useEffect(() => {
+    const loadETFList = async () => {
+      try {
+        setLoading(true);
+        const list = await fetchETFList();
+        setEtfList(list);
+        if (list.length > 0) {
+          setSelectedETF(list[0]);
+        }
+      } catch (error) {
+        console.error("Failed to load ETF list:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadETFList();
+  }, []);
+
+  // Load K-line data when ETF is selected
+  useEffect(() => {
+    const loadKLineData = async () => {
+      if (!selectedETF) return;
+
+      try {
+        setLoading(true);
+        const data = await fetchKLineData(selectedETF.code);
+        setKlineData(data);
+
+        // Calculate BOLL indicator
+        const boll = calculateBOLL(data, bollPeriod, bollMultiplier);
+        setBollData(boll);
+
+        // Run BOLL strategy
+        const strategySignals = runBollStrategy(boll);
+        setSignals(strategySignals);
+
+        // Run backtest
+        const result = backtest(data, strategySignals, initialCapital);
+        setBacktestResult(result);
+
+        // Force chart re-render
+        setChartKey((prev) => prev + 1);
+      } catch (error) {
+        console.error("Failed to load K-line data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadKLineData();
+  }, [selectedETF, bollPeriod, bollMultiplier, initialCapital]);
+
+  const handleETFChange = (code) => {
+    const etf = etfList.find((e) => e.code === code);
+    setSelectedETF(etf);
+  };
+
+  const handleRunBacktest = () => {
+    // Recalculate BOLL indicator with current parameters
+    const boll = calculateBOLL(klineData, bollPeriod, bollMultiplier);
+    setBollData(boll);
+
+    // Run BOLL strategy
+    const strategySignals = runBollStrategy(boll);
+    setSignals(strategySignals);
+
+    // Run backtest
+    const result = backtest(klineData, strategySignals, initialCapital);
+    setBacktestResult(result);
+
+    // Force chart re-render
+    setChartKey((prev) => prev + 1);
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-6">
+        A股ETF量化交易 - BOLL策略可视化
+      </h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle>ETF选择</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Select
+              value={selectedETF?.code}
+              onValueChange={handleETFChange}
+              disabled={loading || etfList.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="选择ETF" />
+              </SelectTrigger>
+              <SelectContent>
+                {etfList.map((etf) => (
+                  <SelectItem key={etf.code} value={etf.code}>
+                    {etf.name} ({etf.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle>初始资金</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-2">
+              <Input
+                type="number"
+                value={initialCapital}
+                onChange={(e) => setInitialCapital(Number(e.target.value))}
+                disabled={loading}
+              />
+              <span>元</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle>BOLL参数</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="period">周期</Label>
+                <Input
+                  id="period"
+                  type="number"
+                  value={bollPeriod}
+                  onChange={(e) => setBollPeriod(Number(e.target.value))}
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <Label htmlFor="multiplier">倍数</Label>
+                <Input
+                  id="multiplier"
+                  type="number"
+                  step="0.1"
+                  value={bollMultiplier}
+                  onChange={(e) => setBollMultiplier(Number(e.target.value))}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle>操作</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={handleRunBacktest}
+              disabled={loading || klineData.length === 0}
+              className="w-full"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  处理中
+                </>
+              ) : (
+                "运行回测"
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {selectedETF && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>
+              {selectedETF.name} ({selectedETF.code})
+            </CardTitle>
+            <CardDescription>
+              当前价格: {selectedETF.price} 元 | 涨跌幅: {selectedETF.change}%
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="chart">K线图表</TabsTrigger>
+          <TabsTrigger value="performance">策略表现</TabsTrigger>
+          <TabsTrigger value="trades">交易记录</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="chart">
+          <div className="grid grid-cols-1 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>K线图与BOLL指标</CardTitle>
+                <CardDescription>
+                  显示K线、布林带上中下轨以及买卖信号
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[500px]">
+                {loading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  </div>
+                ) : klineData.length > 0 ? (
+                  <KLineChart
+                    key={chartKey}
+                    klineData={klineData}
+                    bollData={bollData}
+                    signals={signals}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    暂无数据
+                  </div>
+                )}
+              </CardContent>
+              {signals.length > 0 && <SignalLegend signals={signals} />}
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="performance">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>策略表现指标</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {backtestResult ? (
+                  <PerformanceMetrics
+                    result={backtestResult}
+                    klineData={klineData}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    暂无回测数据
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>资金曲线</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[300px]">
+                {backtestResult ? (
+                  <EquityCurveChart
+                    equityCurve={backtestResult.equityCurve}
+                    initialCapital={initialCapital}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    暂无回测数据
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="trades">
+          <Card>
+            <CardHeader>
+              <CardTitle>交易记录</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {backtestResult ? (
+                <TradeList trades={backtestResult.trades} />
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  暂无交易记录
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
