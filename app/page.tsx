@@ -18,37 +18,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { fetchETFList, fetchKLineData } from "@/lib/data-service";
+import { EtfList, fetchETFList } from "@/lib/service/etfList";
 import { calculateBOLL, runBollStrategy, backtest } from "@/lib/strategy";
-import dynamic from "next/dynamic";
 import SignalLegend from "@/components/signal-legend";
 import PerformanceMetrics from "@/components/performance-metrics";
 import EquityCurveChart from "@/components/equity-curve-chart";
 import TradeList from "@/components/trade-list";
 import { Loader2 } from "lucide-react";
-
-// Import KLineChart component dynamically to avoid SSR issues
-const KLineChart = dynamic(() => import("@/components/kline-chart"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center h-[500px]">
-      <Loader2 className="h-8 w-8 animate-spin" />
-    </div>
-  ),
-});
+import { KLineData } from "@/type";
+import { fetchKLineData } from "@/lib/service/klineData";
+import KLineChart from "@/components/kline-chart";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(false);
-  const [etfList, setEtfList] = useState([]);
-  const [selectedETF, setSelectedETF] = useState(null);
-  const [klineData, setKlineData] = useState([]);
+  const [etfList, setEtfList] = useState<EtfList>([]);
+  const [selectedETF, setSelectedETF] = useState<EtfList[0] | null>(null);
+  const [klineData, setKlineData] = useState<KLineData[]>([]);
   const [bollData, setBollData] = useState([]);
   const [signals, setSignals] = useState([]);
   const [backtestResult, setBacktestResult] = useState(null);
   const [initialCapital, setInitialCapital] = useState(100000);
-  const [bollPeriod, setBollPeriod] = useState(20);
-  const [bollMultiplier, setBollMultiplier] = useState(2);
   const [activeTab, setActiveTab] = useState("chart");
   const [chartKey, setChartKey] = useState(0); // Add a key to force re-render
 
@@ -58,7 +47,7 @@ export default function Dashboard() {
       try {
         setLoading(true);
         const list = await fetchETFList();
-        setEtfList(list);
+        setEtfList(list.slice(0, 10));
         if (list.length > 0) {
           setSelectedETF(list[0]);
         }
@@ -79,11 +68,11 @@ export default function Dashboard() {
 
       try {
         setLoading(true);
-        const data = await fetchKLineData(selectedETF.code);
+        const data = await fetchKLineData(selectedETF.symbol);
         setKlineData(data);
 
         // Calculate BOLL indicator
-        const boll = calculateBOLL(data, bollPeriod, bollMultiplier);
+        const boll = calculateBOLL(data);
         setBollData(boll);
 
         // Run BOLL strategy
@@ -104,16 +93,16 @@ export default function Dashboard() {
     };
 
     loadKLineData();
-  }, [selectedETF, bollPeriod, bollMultiplier, initialCapital]);
+  }, [selectedETF, initialCapital]);
 
   const handleETFChange = (code) => {
-    const etf = etfList.find((e) => e.code === code);
+    const etf = etfList.find((e) => e.symbol === code);
     setSelectedETF(etf);
   };
 
   const handleRunBacktest = () => {
     // Recalculate BOLL indicator with current parameters
-    const boll = calculateBOLL(klineData, bollPeriod, bollMultiplier);
+    const boll = calculateBOLL(klineData);
     setBollData(boll);
 
     // Run BOLL strategy
@@ -141,7 +130,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <Select
-              value={selectedETF?.code}
+              value={selectedETF?.symbol}
               onValueChange={handleETFChange}
               disabled={loading || etfList.length === 0}
             >
@@ -150,8 +139,8 @@ export default function Dashboard() {
               </SelectTrigger>
               <SelectContent>
                 {etfList.map((etf) => (
-                  <SelectItem key={etf.code} value={etf.code}>
-                    {etf.name} ({etf.code})
+                  <SelectItem key={etf.symbol} value={etf.symbol}>
+                    {etf.name} ({etf.symbol})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -181,7 +170,7 @@ export default function Dashboard() {
             <CardTitle>BOLL参数</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-2">
+            {/* <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label htmlFor="period">周期</Label>
                 <Input
@@ -203,7 +192,7 @@ export default function Dashboard() {
                   disabled={loading}
                 />
               </div>
-            </div>
+            </div> */}
           </CardContent>
         </Card>
 
@@ -234,7 +223,7 @@ export default function Dashboard() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>
-              {selectedETF.name} ({selectedETF.code})
+              {selectedETF.name} ({selectedETF.symbol})
             </CardTitle>
             <CardDescription>
               当前价格: {selectedETF.price} 元 | 涨跌幅: {selectedETF.change}%

@@ -1,18 +1,26 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import dynamic from "next/dynamic"
-import { Loader2 } from "lucide-react"
+import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { Loader2 } from "lucide-react";
 
 // Import ApexCharts dynamically to avoid SSR issues
-const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false })
+const ReactApexChart = dynamic(() => import("react-apexcharts"), {
+  ssr: false,
+});
 
 export default function KLineChart({ klineData, bollData, signals }) {
-  const [chartData, setChartData] = useState(null)
-  const [chartOptions, setChartOptions] = useState(null)
+  const [chartData, setChartData] = useState(null);
+  const [chartOptions, setChartOptions] = useState(null);
 
   useEffect(() => {
-    if (!klineData || klineData.length === 0 || !bollData || bollData.length === 0) return
+    if (
+      !klineData ||
+      klineData.length === 0 ||
+      !bollData ||
+      bollData.length === 0
+    )
+      return;
 
     // Prepare candlestick data
     const ohlc = klineData.map((item) => ({
@@ -23,54 +31,54 @@ export default function KLineChart({ klineData, bollData, signals }) {
         Number.parseFloat(item.low),
         Number.parseFloat(item.close),
       ],
-    }))
+    }));
 
     // Prepare BOLL data
-    const bollMiddle = []
-    const bollUpper = []
-    const bollLower = []
+    const bollMiddle = [];
+    const bollUpper = [];
+    const bollLower = [];
 
     bollData.forEach((item) => {
-      const timestamp = new Date(item.date).getTime()
+      const timestamp = new Date(item.date).getTime();
 
       if (item.ma !== null) {
         bollMiddle.push({
           x: timestamp,
           y: item.ma,
-        })
+        });
       }
 
       if (item.upper !== null) {
         bollUpper.push({
           x: timestamp,
           y: item.upper,
-        })
+        });
       }
 
       if (item.lower !== null) {
         bollLower.push({
           x: timestamp,
           y: item.lower,
-        })
+        });
       }
-    })
+    });
 
     // Prepare buy/sell signals
-    const buySignals = []
-    const sellSignals = []
+    const buySignals = [];
+    const sellSignals = [];
 
     signals.forEach((signal) => {
       const dataPoint = {
         x: new Date(signal.date).getTime(),
         y: Number.parseFloat(signal.price),
-      }
+      };
 
       if (signal.type === "BUY") {
-        buySignals.push(dataPoint)
+        buySignals.push(dataPoint);
       } else {
-        sellSignals.push(dataPoint)
+        sellSignals.push(dataPoint);
       }
-    })
+    });
 
     // Set chart series
     setChartData([
@@ -104,7 +112,7 @@ export default function KLineChart({ klineData, bollData, signals }) {
         type: "scatter",
         data: sellSignals,
       },
-    ])
+    ]);
 
     // Set chart options
     setChartOptions({
@@ -161,12 +169,33 @@ export default function KLineChart({ klineData, bollData, signals }) {
         curve: "smooth",
         width: [1, 2, 2, 2, 0, 0],
       },
-      colors: ["#000000", "#FF9600", "#935EBD", "#935EBD", "#26A69A", "#EF5350"],
+      colors: [
+        "#000000",
+        "#FF9600",
+        "#935EBD",
+        "#935EBD",
+        "#26A69A",
+        "#EF5350",
+      ],
       markers: {
         size: [0, 0, 0, 0, 6, 6],
         shape: "circle",
-        colors: ["#000000", "#FF9600", "#935EBD", "#935EBD", "#26A69A", "#EF5350"],
-        strokeColors: ["#000000", "#FF9600", "#935EBD", "#935EBD", "#26A69A", "#EF5350"],
+        colors: [
+          "#000000",
+          "#FF9600",
+          "#935EBD",
+          "#935EBD",
+          "#26A69A",
+          "#EF5350",
+        ],
+        strokeColors: [
+          "#000000",
+          "#FF9600",
+          "#935EBD",
+          "#935EBD",
+          "#26A69A",
+          "#EF5350",
+        ],
         hover: {
           size: 8,
         },
@@ -180,9 +209,9 @@ export default function KLineChart({ klineData, bollData, signals }) {
           formatter: (value, { seriesIndex, dataPointIndex, w }) => {
             if (seriesIndex === 0) {
               // For candlestick series, we don't use this formatter
-              return value
+              return value;
             }
-            return value.toFixed(2)
+            return value.toFixed(2);
           },
         },
       },
@@ -190,21 +219,21 @@ export default function KLineChart({ klineData, bollData, signals }) {
         show: true,
         position: "top",
       },
-    })
-  }, [klineData, bollData, signals])
+    });
+  }, [klineData, bollData, signals]);
 
   // Create a separate chart for volume
-  const [volumeChartData, setVolumeChartData] = useState(null)
-  const [volumeChartOptions, setVolumeChartOptions] = useState(null)
+  const [volumeChartData, setVolumeChartData] = useState(null);
+  const [volumeChartOptions, setVolumeChartOptions] = useState(null);
 
   useEffect(() => {
-    if (!klineData || klineData.length === 0) return
+    if (!klineData || klineData.length === 0) return;
 
     // Prepare volume data
     const volumeData = klineData.map((item) => ({
       x: new Date(item.date).getTime(),
       y: Number.parseFloat(item.volume),
-    }))
+    }));
 
     // Set volume chart series
     setVolumeChartData([
@@ -212,7 +241,7 @@ export default function KLineChart({ klineData, bollData, signals }) {
         name: "成交量",
         data: volumeData,
       },
-    ])
+    ]);
 
     // Set volume chart options
     setVolumeChartOptions({
@@ -259,29 +288,46 @@ export default function KLineChart({ klineData, bollData, signals }) {
           format: "yyyy-MM-dd",
         },
       },
-    })
-  }, [klineData])
+    });
+  }, [klineData]);
 
-  if (!klineData || klineData.length === 0 || !chartData || !chartOptions || !volumeChartData || !volumeChartOptions) {
+  if (
+    !klineData ||
+    klineData.length === 0 ||
+    !chartData ||
+    !chartOptions ||
+    !volumeChartData ||
+    !volumeChartOptions
+  ) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
-    )
+    );
   }
 
   return (
     <div className="w-full h-full">
       <div className="mb-4">
         {typeof window !== "undefined" && (
-          <ReactApexChart options={chartOptions} series={chartData} type="candlestick" height={400} />
+          <ReactApexChart
+            options={chartOptions}
+            series={chartData}
+            type="candlestick"
+            height={400}
+          />
         )}
       </div>
       <div>
         {typeof window !== "undefined" && (
-          <ReactApexChart options={volumeChartOptions} series={volumeChartData} type="bar" height={100} />
+          <ReactApexChart
+            options={volumeChartOptions}
+            series={volumeChartData}
+            type="bar"
+            height={100}
+          />
         )}
       </div>
     </div>
-  )
+  );
 }
